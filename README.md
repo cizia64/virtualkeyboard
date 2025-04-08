@@ -111,6 +111,6 @@ In case you didn't spot it from the above list, the 'START' button is not used, 
 
 ## Final Words ...
 
-This is very important to keep in mind: ++the code comes as is with no support++. So, in case you want to modify it to suit your needs, go ahead, grab the code and have fun experimenting with it!
+This is very important to keep in mind: <ins>the code comes as is with no support</ins>. So, in case you want to modify it to suit your needs, go ahead, grab the code and have fun experimenting with it!
 
 Enjoy .. 🍻
