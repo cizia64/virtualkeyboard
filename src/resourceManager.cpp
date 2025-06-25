@@ -69,7 +69,7 @@ const bool CResourceManager::init(const int argc, char** const argv)
     l_shortPath.append(l_backgroundPath);
 
     m_surfaces[T_SURFACE_BACKGROUND] = LoadIcon(l_shortPath.c_str());
-    m_font = SDL_Utils::loadFont(RES_DIR "FieryTurk.ttf", static_cast<int>(FONT_SIZE * Globals::g_Screen.getAdjustedPpuY()));
+    m_font = SDL_Utils::loadFont(RES_DIR "DejaVuSans.ttf", static_cast<int>(FONT_SIZE * Globals::g_Screen.getAdjustedPpuY()));
 
     if(m_font == nullptr)
     {

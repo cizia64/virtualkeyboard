@@ -148,7 +148,7 @@ void CWindow::handleJoyButtonDown(const SDL_Event& p_event, bool& p_render, bool
         l_keyEvent.key.keysym.sym = MYKEY_CARETRIGHT;
         p_render = this->keyPress(l_keyEvent);
         break;
-    case 6: // Select
+    case 7: // Start
         l_keyEvent.key.keysym.sym = MYKEY_TRANSFER;
         p_render = this->keyPress(l_keyEvent);
         break;

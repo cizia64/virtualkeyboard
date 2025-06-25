@@ -1,3 +1,24 @@
+## About this fork:
+
+It includes some little modifications to be used on [CrossMix-OS](https://github.com/cizia64/CrossMix-OS/):
+- Change default ressources directory
+- Change default font
+- Change theme colors
+- Change Select -> Start to confirm
+
+
+One line command line:
+```sh
+result=$("$BIN_DIR/VirtualKeyboard" "background.png" "test" | grep -o '\[VKStart\].*\[VKEnd\]' | sed -e 's/\[VKStart\]//' -e 's/\[VKEnd\]//')
+```
+or with awk
+```sh
+result=$("$BIN_DIR/VirtualKeyboard" "background.png" "test" | awk '/\[VKStart\]/ && /\[VKEnd\]/ { sub(/^.*\[VKStart\]/, ""); sub(/\[VKEnd\].*$/, ""); print; exit }')
+```
+
+Thanks Ultrahead for this great tool.
+
+
 # VIRTUAL KEYBOARD
 ## _For the Trimui Smart Pro ..._
 

@@ -211,7 +211,7 @@ CKeyboard::CKeyboard(const std::string &p_inputText):
 
     // Create the footer with instructions
     m_footer = SDL_Utils::createImage(Globals::g_Screen.m_logicalWidth, static_cast<int>(FOOTER_HEIGHT * l_adjustedPpuY), SDL_MapRGB(Globals::g_screen->format, COLOR_BORDER));
-    SDL_Utils::applyText(Globals::g_Screen.m_logicalWidth >> 1, 1, m_footer, m_font, "A-Press  B-Keyset  Select-OK  Menu-Cancel  L/R-Caret  L2/R2-Edges  Y-Backspace  X-Space", Globals::g_colorTextTitle, {COLOR_TITLE_BG}, SDL_Utils::ETextAlign::CENTER);
+    SDL_Utils::applyText(Globals::g_Screen.m_logicalWidth >> 1, 6, m_footer, m_font, "A-Press  B-Keyset  Menu-Cancel  L/R-Caret  L2/R2-Edges  Y-Backspace  X-Space  Start-OK" , Globals::g_colorTextTitle, {COLOR_TITLE_BG}, SDL_Utils::ETextAlign::CENTER);
 
     #if CARETTICKS == true
 

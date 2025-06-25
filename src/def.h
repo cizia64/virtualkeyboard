@@ -25,7 +25,7 @@
  *
  * @param X Specifies the relative path to the resources.
  */
-#define RES_DIR "res/"
+#define RES_DIR "/mnt/SDCARD/System/resources/"
 
 /**
  * @brief Macro used to indicate whether the caret must blink or always stay visible.
@@ -43,7 +43,7 @@
 
 /**
  * @brief Macro that indicates whether the keyboard must autoscale when the initial resolution differs from the default one.
- *   
+ *
  * @param X If TRUE, keyboard rendering size will autoscale.
  */
 #define AUTOSCALE true
@@ -100,16 +100,16 @@
  *
  * @param X The color in RGB format.
  */
-#define COLOR_TITLE_BG 102, 85, 74
-#define COLOR_TEXT_NORMAL 70, 27, 10
-#define COLOR_TEXT_TITLE 233, 229, 227
-#define COLOR_TEXT_DIR 75, 70, 164
+#define COLOR_TITLE_BG 20, 20, 20       // background of bottom help text (not the footer, just behind the text)
+#define COLOR_TEXT_NORMAL 233, 233, 233 // text on keys
+#define COLOR_TEXT_TITLE 120, 120, 120  //  bottom help text line
+#define COLOR_TEXT_DIR 255, 0, 0
 #define COLOR_TEXT_SELECTED 255, 0, 0
-#define COLOR_CURSOR 232, 152, 80
-#define COLOR_BG_1 255, 255, 255
-#define COLOR_BG_2 232, 228, 224
-#define COLOR_BG_3 52, 52, 52
-#define COLOR_BORDER 102, 85, 74
+#define COLOR_CURSOR 217, 149, 24 // current selected key
+#define COLOR_BG_1 60, 60, 60     // keys back color
+#define COLOR_BG_2 120, 120, 120  // between keys
+#define COLOR_BG_3 0, 0, 0        // outside background
+#define COLOR_BORDER 20, 20, 20   // border of all fields
 
 /**
  * @brief Macros that map specific SDL input codes with the ones used by this program.
