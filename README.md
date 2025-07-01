@@ -5,15 +5,21 @@ It includes some little modifications to be used on [CrossMix-OS](https://github
 - Change default font
 - Change theme colors
 - Change Select -> Start to confirm
+- New args prefix:
+  - `-i` for the image
+  - `-t` for initial text
+  - `-p` to activate password mode (optional, no argument)
+- Manage full path for the image or just filename (in this case it will search in `/mnt/SDCARD/System/resources/` folder)
+
 
 
 One line command line:
 ```sh
-result=$("$BIN_DIR/VirtualKeyboard" "background.png" "test" | grep -o '\[VKStart\].*\[VKEnd\]' | sed -e 's/\[VKStart\]//' -e 's/\[VKEnd\]//')
+result=$("$BIN_DIR/VirtualKeyboard" -i "background.png" -t "test" | grep -o '\[VKStart\].*\[VKEnd\]' | sed -e 's/\[VKStart\]//' -e 's/\[VKEnd\]//')
 ```
 or with awk
 ```sh
-result=$("$BIN_DIR/VirtualKeyboard" "background.png" "test" | awk '/\[VKStart\]/ && /\[VKEnd\]/ { sub(/^.*\[VKStart\]/, ""); sub(/\[VKEnd\].*$/, ""); print; exit }')
+result=$("$BIN_DIR/VirtualKeyboard" -i "background.png" -t "test" | awk '/\[VKStart\]/ && /\[VKEnd\]/ { sub(/^.*\[VKStart\]/, ""); sub(/\[VKEnd\].*$/, ""); print; exit }')
 ```
 
 Thanks Ultrahead for this great tool.

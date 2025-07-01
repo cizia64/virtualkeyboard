@@ -73,6 +73,10 @@ int main(int argc, char** argv)
     }
 
     const int result = keyboard->execute();
+    std::string output = keyboard->getInputText();
+    if (!output.empty()) {
+        std::cout << "[VKStart]" << output << "[VKEnd]" << std::endl;
+    }
     SDL_Utils::cleanupAndQuit();
     return result;
 }
