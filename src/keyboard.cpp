@@ -49,6 +49,9 @@ namespace
 #endif
 }
 
+// Prototype for the confidential timer
+Uint32 hideCharacters(Uint32 interval, void* param);
+
 #if CARETTICKS == true
 
 static Uint32 changeCaretVisibility(Uint32 interval, void* param)
@@ -98,6 +101,9 @@ CKeyboard::CKeyboard(const std::string &p_inputText):
 	m_showCaret(true),
     m_mustShowCaret(false),
     m_caretPosition(p_inputText.length()),
+    m_confidentialMode(false),
+    m_confidentialTimer(0),
+    m_displayText(p_inputText),
     m_font(CResourceManager::instance().getFont())
 {
     // Steps:
@@ -293,8 +299,36 @@ void CKeyboard::render(const bool p_focus) const
     // 2. Draw main parts of the keyboard
     {
         // 2a. Render input text
-        if (m_inputText.empty() == false)
-        {
+        if (m_confidentialMode) {
+            if (!m_displayText.empty()) {
+                SDL_Surface* l_surfaceTmp = SDL_Utils::renderText(m_font, m_displayText, Globals::g_colorTextNormal, { COLOR_BG_1 });
+
+                const std::string l_subString = m_displayText.substr(0, l_caretPositionTmp);
+
+                if (TTF_SizeUTF8(m_font, l_subString.c_str(), &l_caretPositionTmp, nullptr) != 0)
+                {
+                    SDL_LogWarn(0, "Could not measure UTF8 string: %s", TTF_GetError());
+                }
+
+                l_rect.w = l_fieldWidth;
+                l_rect.h = l_surfaceTmp->h;
+
+                if (l_caretPositionTmp > l_textAreaLenght)
+                {
+                    // 2b. Clip text if too long
+                    const int l_areaDiffOffset = static_cast<int>(l_textAreaLenght - l_caretPositionTmp);
+                    l_caretPositionTmp = std::min(static_cast<int>(l_textAreaLenght), l_caretPositionTmp);
+                    l_rect.x = -l_areaDiffOffset;
+                    SDL_Utils::applySurface(l_keyboardX + static_cast<Sint16>(5 * l_adjustedPpuX), l_fieldY + static_cast<Sint16>(4 * l_adjustedPpuY), l_surfaceTmp, Globals::g_screen, &l_rect);
+                }
+                else
+                {
+                    l_rect.x = 0;
+                    l_caretPositionTmp = std::min(l_surfaceTmp->w, l_caretPositionTmp);
+                    SDL_Utils::applySurface(l_keyboardX + static_cast<Sint16>(5 * l_adjustedPpuX), l_fieldY + static_cast<Sint16>(4 * l_adjustedPpuY), l_surfaceTmp, Globals::g_screen, &l_rect);
+                }
+            }
+        } else if (!m_inputText.empty()) {
             SDL_Surface* l_surfaceTmp = SDL_Utils::renderText(m_font, m_inputText, Globals::g_colorTextNormal, { COLOR_BG_1 });
 
             const std::string l_subString = m_inputText.substr(0, l_caretPositionTmp);
@@ -422,6 +456,20 @@ void CKeyboard::render(const bool p_focus) const
 
     // 8. Draw the footer
     SDL_Utils::applySurface(0, (Globals::g_Screen.m_logicalHeight - m_footer->h), m_footer, Globals::g_screen);
+}
+
+void CKeyboard::renderField(void) const
+{
+    // If you are in confidential mode, use m_displayText instead of m_inputText
+    const std::string& textToRender = m_confidentialMode ? m_displayText : m_inputText;
+    
+    // Create text surface
+    SDL_Color textColor = {0, 0, 0, 0};
+    SDL_Surface* textSurface = TTF_RenderUTF8_Blended(m_font, textToRender.c_str(), textColor);
+    
+    if (textSurface != nullptr) {
+        // ...existing rendering code...
+    }
 }
 
 const bool CKeyboard::keyPress(const SDL_Event& p_event)
@@ -908,6 +956,20 @@ const bool CKeyboard::typeChar(const bool p_addSpace)
     m_caretPosition += l_caretAdvance;
     INHIBIT(SDL_Log("Caret Position after insertion: %d", m_caretPosition);)
 
+    if (m_confidentialMode) {
+        m_charTimestamps.resize(m_inputText.length());
+        m_charTimestamps[m_caretPosition - 1] = SDL_GetTicks();
+        if (m_confidentialTimer == 0) {
+            m_confidentialTimer = SDL_AddTimer(100, hideCharacters, this);
+        }
+        // Hide all characters except the last
+        m_displayText = std::string(m_inputText.length(), '*');
+        if (!m_inputText.empty()) {
+            m_displayText[m_inputText.length() - 1] = m_inputText[m_inputText.length() - 1];
+        }
+        renderField();
+    }
+
     return true;
 }
 
@@ -991,5 +1053,41 @@ const bool CKeyboard::checkUtf8Code(const unsigned char p_char) const
     // in memory to be visually represented.
 
     return (p_char >= 194 && p_char <= 198) || p_char == 208 || p_char == 209;
+}
+
+/*
+ * @brief Timer callback for hiding characters in confidential mode
+ */
+Uint32 hideCharacters(Uint32 interval, void* param)
+{
+    CKeyboard* keyboard = static_cast<CKeyboard*>(param);
+    if (keyboard == nullptr) return 0;
+
+    Uint32 currentTime = SDL_GetTicks();
+    std::string newDisplay(keyboard->m_inputText.length(), '*');
+    bool changed = false;
+
+    // Only the last unmasked character must be masked after 500ms
+    if (!keyboard->m_inputText.empty()) {
+        size_t lastIdx = keyboard->m_inputText.length() - 1;
+        if (currentTime - keyboard->m_charTimestamps[lastIdx] < 500) {
+            newDisplay[lastIdx] = keyboard->m_inputText[lastIdx];
+        } else {
+            changed = true;
+        }
+    }
+
+    if (keyboard->m_displayText != newDisplay) {
+        keyboard->m_displayText = newDisplay;
+        keyboard->renderField();
+    }
+
+    return interval;
+}
+
+void CKeyboard::maskInitialText()
+{
+    m_displayText = std::string(m_inputText.length(), '*');
+    m_charTimestamps.resize(m_inputText.length(), SDL_GetTicks() - 1000);
 }
 

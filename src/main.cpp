@@ -29,27 +29,52 @@
 
 int main(int argc, char** argv)
 {
-	// 1. Initialize SDL with the corresponding flags and early exit on fail (return 1).
-	// 2. Initialize the joystick, if found.
-	// 3. Initialize the screen and early exit on fail (return 1).
-	// 4. Initialize resources and early exit on fail (return 1).
-	// 5. Initialize and open the virtual keyboard.
-	// 6. Clean up SDL resources.
-	// 7. Return the result of the keyboard execution (where 0 is Ok).
+    std::string imagePath;
+    std::string inputText;
+    bool passwordMode = false;
 
-	if (initSDL() == false) return 1;
+    // Nouveau parsing des arguments
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) {
+            imagePath = argv[++i];
+        } else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
+            inputText = argv[++i];
+        } else if (strcmp(argv[i], "-p") == 0) {
+            passwordMode = true;
+        }
+    }
 
-	initJoystick();
+    // Préparer le chemin de l'image
+    std::string imageArg;
+    if (!imagePath.empty()) {
+        if (!(imagePath[0] == '/' || imagePath[0] == '\\')) {
+            imageArg = "/mnt/SDCARD/System/resources/" + imagePath;
+        } else {
+            imageArg = imagePath;
+        }
+    }
+    const char* resourceArgv[2] = { argv[0], imageArg.empty() ? nullptr : imageArg.c_str() };
+    int resourceArgc = imageArg.empty() ? 1 : 2;
 
-	if (initScreen() == false) return 1;
+    if (initSDL() == false) return 1;
+    if (TTF_Init() == -1) {
+        SDL_LogError(0, "Initialization of TTF failed: %s", SDL_GetError());
+        return 1;
+    }
+    initJoystick();
+    if (initScreen() == false) return 1;
+    if (CResourceManager::instance().init(resourceArgc, const_cast<char**>(resourceArgv)) == false) return 1;
 
-	if (initResources(argc, argv) == false) return 1;
+    // Créer et initialiser le clavier
+    CKeyboard* keyboard = new CKeyboard(inputText);
+    keyboard->setConfidentialMode(passwordMode);
+    if (passwordMode && !inputText.empty()) {
+        keyboard->maskInitialText();
+    }
 
-	const int result = initKeyboard(argc, argv);
-
-	SDL_Utils::cleanupAndQuit();
-
-	return result;
+    const int result = keyboard->execute();
+    SDL_Utils::cleanupAndQuit();
+    return result;
 }
 
 const bool initSDL(void)
@@ -227,45 +252,52 @@ const bool initResources(const int argc, char** const argv)
 	return true;
 }
 
-const int initKeyboard(const int argc, char** const argv)
+const int initKeyboard(int argc, char** const argv)
 {
-	// 1. Create an instance of the virtual keyboard, passing the third commandline argument if available (otherwise, an empty string).
-	// 2. Execute the keyboard and check if execution succeeds (result equals 1).
-	// 3. If successful, clear the console screen (using system-specific commands).
-	// 4. Retrieve the input text from the keyboard and check if it is empty.
-	// 5. Format the output string by wrapping the input text with "[VKStart]" and "[VKEnd]".
-	// 6. Print the whole formatted output string to the console and return a value indicating success (0).
-	// 7. If the keyboard execution was not successful, log a warning message and return 1.
+    std::string imagePath;
+    std::string inputText;
+    bool passwordMode = false;
 
-	CKeyboard l_keyboard(argc < 3 ? "" : argv[2]);
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) {
+            imagePath = argv[++i];
+        } else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
+            inputText = argv[++i];
+        } else if (strcmp(argv[i], "-p") == 0) {
+            passwordMode = true;
+        }
+    }
 
-	if (l_keyboard.execute() == 1)
-	{
+    // Create and initialize the keyboard
+    CKeyboard* keyboard = new CKeyboard(inputText);
+    keyboard->setConfidentialMode(passwordMode);
+    if (passwordMode && !inputText.empty()) {
+        // Hide initial text on startup
+        keyboard->maskInitialText();
+    }
+
+    // TODO: use imagePath if necessary to load a texture
+
+    if (keyboard->execute() == 1)
+    {
 #ifdef _WIN64
-
-		std::system("cls");
-
+        std::system("cls");
 #else
-
-		std::system("clear");
-
+        std::system("clear");
 #endif
-
-		std::string text{ l_keyboard.getInputText() };
-
-		if (text.empty())
-		{
-			text = "";
-		}
-
-		const std::string output{ "[VKStart]" + l_keyboard.getInputText() + "[VKEnd]" };
-
-		std::cout << output << std::endl; // To avoid that other processes or threads to chime in, always output a whole string
-		return 0;
-	}
-
-	SDL_LogWarn(0, "Input operation aborted!");
-
-	return 1;
+        std::string result = keyboard->getInputText();
+        if (result.empty())
+        {
+            SDL_LogWarn(0, "No input text provided.");
+            return 1;
+        }
+        std::cout << "[VKStart]" << result << "[VKEnd]" << std::endl;
+        return 0;
+    }
+    else
+    {
+        SDL_LogWarn(0, "Keyboard execution failed.");
+        return 1;
+    }
 }
 

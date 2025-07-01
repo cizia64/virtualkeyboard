@@ -65,9 +65,13 @@ const bool CResourceManager::init(const int argc, char** const argv)
 	// 5. If any of the loading operation fails, return FALSE. Otherwise, return TRUE.
 
     const char* l_backgroundPath = (argc > 1) ? argv[1] : "background_default.png";
-    std::string l_shortPath(RES_DIR);
-    l_shortPath.append(l_backgroundPath);
-
+    std::string l_shortPath;
+    if (l_backgroundPath[0] == '/' || l_backgroundPath[0] == '\\') {
+        l_shortPath = l_backgroundPath;
+    } else {
+        l_shortPath = RES_DIR;
+        l_shortPath.append(l_backgroundPath);
+    }
     m_surfaces[T_SURFACE_BACKGROUND] = LoadIcon(l_shortPath.c_str());
     m_font = SDL_Utils::loadFont(RES_DIR "DejaVuSans.ttf", static_cast<int>(FONT_SIZE * Globals::g_Screen.getAdjustedPpuY()));
 

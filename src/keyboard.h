@@ -10,6 +10,7 @@
 #include <SDL.h>
 #include <SDL_ttf.h>
 #include "window.h"
+#include <vector>
 
  /*
   * @brief Constant expression that specifies the amount of key sets in the keyboard.
@@ -68,6 +69,17 @@ class CKeyboard : public CWindow
      * @brief Indicates whether the caret must be shown or not.
      */
     bool m_mustShowCaret = false;
+
+    /**
+     * @brief Set confidential mode for password input
+     */
+    void renderField(void) const;
+    inline void setConfidentialMode(bool mode) { m_confidentialMode = mode; }
+
+    /**
+     * @brief        Hides the initial text if in password mode.
+     */
+    void maskInitialText();
 
     private:
 
@@ -216,6 +228,27 @@ class CKeyboard : public CWindow
      * @brief Pointer to the font used by the keyboard.
      */
     TTF_Font* m_font;
+
+    /**
+     * @brief Timer for confidential mode character hiding
+     */
+    SDL_TimerID m_confidentialTimer;
+
+    /**
+     * @brief Confidential mode flag
+     */
+    bool m_confidentialMode;
+
+    /**
+     * @brief Displayed text (can be different from input text in confidential mode)
+     */
+    std::string m_displayText;
+
+    /**
+     * @brief Timestamps for each character in confidential mode
+     */
+    std::vector<Uint32> m_charTimestamps;
+    friend Uint32 hideCharacters(Uint32 interval, void* param);
 };
 
 #endif // _KEYBOARD_H_
