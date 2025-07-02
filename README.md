@@ -5,13 +5,16 @@ It includes some little modifications to be used on [CrossMix-OS](https://github
 - Change default font
 - Change theme colors
 - Change Select -> Start to confirm
+- Add sound effects (when browsing letters, when typing and when exiting)
 - New args prefix:
   - `-i` for the image
   - `-t` for initial text
   - `-p` to activate password mode (optional, no argument)
+  - `-m` to add a message, a title on top of the keyboard
 - Manage full path for the image or just filename (in this case it will search in `/mnt/SDCARD/System/resources/` folder)
 
-
+About password, "-p" option:
+The confidential (password) mode is masking input characters with a timer to briefly show the last typed character. Keep pressing SELECT to reveal the full text masked.
 
 One line command line:
 ```sh
