@@ -20,6 +20,7 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_ttf.h>
+#include <SDL_mixer.h>
 #include "def.h"
 #include "screen.h"
 #include "sdlUtils.h"
@@ -31,6 +32,7 @@ int main(int argc, char** argv)
 {
     std::string imagePath;
     std::string inputText;
+    std::string message;
     bool passwordMode = false;
 
     // Nouveau parsing des arguments
@@ -41,6 +43,8 @@ int main(int argc, char** argv)
             inputText = argv[++i];
         } else if (strcmp(argv[i], "-p") == 0) {
             passwordMode = true;
+        } else if (strcmp(argv[i], "-m") == 0 && i + 1 < argc) {
+            message = argv[++i];
         }
     }
 
@@ -61,6 +65,10 @@ int main(int argc, char** argv)
         SDL_LogError(0, "Initialization of TTF failed: %s", SDL_GetError());
         return 1;
     }
+    // Initialize SDL_mixer
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+        SDL_LogError(0, "SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError());
+    }
     initJoystick();
     if (initScreen() == false) return 1;
     if (CResourceManager::instance().init(resourceArgc, const_cast<char**>(resourceArgv)) == false) return 1;
@@ -68,6 +76,7 @@ int main(int argc, char** argv)
     // Créer et initialiser le clavier
     CKeyboard* keyboard = new CKeyboard(inputText);
     keyboard->setConfidentialMode(passwordMode);
+    keyboard->setMessage(message);
     if (passwordMode && !inputText.empty()) {
         keyboard->maskInitialText();
     }
@@ -77,6 +86,7 @@ int main(int argc, char** argv)
     if (!output.empty()) {
         std::cout << "[VKStart]" << output << "[VKEnd]" << std::endl;
     }
+    Mix_CloseAudio();
     SDL_Utils::cleanupAndQuit();
     return result;
 }

@@ -9,6 +9,7 @@
 #include <string>
 #include <SDL.h>
 #include <SDL_ttf.h>
+#include <SDL_mixer.h>
 #include "window.h"
 #include <vector>
 
@@ -74,7 +75,12 @@ class CKeyboard : public CWindow
      * @brief Set confidential mode for password input
      */
     void renderField(void) const;
-    inline void setConfidentialMode(bool mode) { m_confidentialMode = mode; }
+    void setConfidentialMode(bool mode);
+
+    /**
+     * @brief Set message to display above keyboard
+     */
+    inline void setMessage(const std::string &message) { m_message = message; }
 
     /**
      * @brief        Hides the initial text if in password mode.
@@ -252,9 +258,31 @@ class CKeyboard : public CWindow
     std::string m_displayText;
 
     /**
+     * @brief Message to display above keyboard
+     */
+    std::string m_message;
+
+    /**
+     * @brief Sound effects for keyboard actions
+     */
+    Mix_Chunk *m_navClickSound;
+    Mix_Chunk *m_selectClickSound;
+
+    /**
+     * @brief Play keyboard navigation sound
+     */
+    void playNavigationSound() const;
+
+    /**
+     * @brief Play keyboard selection sound
+     */
+    void playSelectionSound() const;
+
+    /**
      * @brief Timestamps for each character in confidential mode
      */
     std::vector<Uint32> m_charTimestamps;
+
     friend Uint32 hideCharacters(Uint32 interval, void* param);
 };
 

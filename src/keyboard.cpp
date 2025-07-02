@@ -104,6 +104,9 @@ CKeyboard::CKeyboard(const std::string &p_inputText):
     m_confidentialMode(false),
     m_confidentialTimer(0),
     m_displayText(p_inputText),
+    m_message(""),
+    m_navClickSound(nullptr),
+    m_selectClickSound(nullptr),
     m_font(CResourceManager::instance().getFont())
 {
     // Steps:
@@ -217,7 +220,48 @@ CKeyboard::CKeyboard(const std::string &p_inputText):
 
     // Create the footer with instructions
     m_footer = SDL_Utils::createImage(Globals::g_Screen.m_logicalWidth, static_cast<int>(FOOTER_HEIGHT * l_adjustedPpuY), SDL_MapRGB(Globals::g_screen->format, COLOR_BORDER));
-    SDL_Utils::applyText(Globals::g_Screen.m_logicalWidth >> 1, 6, m_footer, m_font, "A-Press  B-Keyset  Menu-Cancel  L/R-Caret  L2/R2-Edges  Y-Backspace  X-Space  Start-OK" , Globals::g_colorTextTitle, {COLOR_TITLE_BG}, SDL_Utils::ETextAlign::CENTER);
+    
+    // Footer text depends on confidential mode
+    std::string footerText = "A-Press  B-Keyset  Menu-Cancel  L/R-Caret  L2/R2-Edges  Y-Backspace  X-Space  Start-OK";
+    if (m_confidentialMode) {
+        footerText += "  SEL.-Show";
+    }
+    
+    SDL_Utils::applyText(Globals::g_Screen.m_logicalWidth >> 1, 6, m_footer, m_font, footerText.c_str(), 
+                         Globals::g_colorTextTitle, {COLOR_TITLE_BG}, SDL_Utils::ETextAlign::CENTER);
+    
+    // Initialize SDL_mixer if not already initialized
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+        SDL_LogError(0, "SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError());
+        m_navClickSound = nullptr;
+        m_selectClickSound = nullptr;
+    } else {
+        // Load sound files
+        std::string navClickPath = std::string(RES_DIR) + "nav_click.wav";
+        std::string keyClickPath = std::string(RES_DIR) + "key_click.wav";
+        
+        SDL_RWops* navRw = SDL_RWFromFile(navClickPath.c_str(), "rb");
+        if (navRw != nullptr) {
+            m_navClickSound = Mix_LoadWAV_RW(navRw, 1); // 1 means free the SDL_RWops when done
+            if (m_navClickSound == nullptr) {
+                SDL_LogError(0, "Failed to load nav_click.wav! SDL_mixer Error: %s\n", Mix_GetError());
+            }
+        } else {
+            SDL_LogError(0, "Failed to open nav_click.wav! SDL Error: %s\n", SDL_GetError());
+            m_navClickSound = nullptr;
+        }
+        
+        SDL_RWops* keyRw = SDL_RWFromFile(keyClickPath.c_str(), "rb");
+        if (keyRw != nullptr) {
+            m_selectClickSound = Mix_LoadWAV_RW(keyRw, 1); // 1 means free the SDL_RWops when done
+            if (m_selectClickSound == nullptr) {
+                SDL_LogError(0, "Failed to load key_click.wav! SDL_mixer Error: %s\n", Mix_GetError());
+            }
+        } else {
+            SDL_LogError(0, "Failed to open key_click.wav! SDL Error: %s\n", SDL_GetError());
+            m_selectClickSound = nullptr;
+        }
+    }
 
     #if CARETTICKS == true
 
@@ -233,6 +277,7 @@ CKeyboard::~CKeyboard(void)
     // 2. Free all SDL resources.
 
 	SDL_RemoveTimer(m_timerId);
+    SDL_RemoveTimer(m_confidentialTimer);
 
     if (m_imageKeyboard != nullptr)
     {
@@ -246,7 +291,28 @@ CKeyboard::~CKeyboard(void)
         m_textField = nullptr;
     }
 
-    if (m_textField != nullptr)
+    if (m_caret != nullptr)
+    {
+        SDL_FreeSurface(m_caret);
+        m_caret = nullptr;
+    }
+
+    // Free sound resources
+    if (m_navClickSound != nullptr)
+    {
+        Mix_FreeChunk(m_navClickSound);
+        m_navClickSound = nullptr;
+    }
+
+    if (m_selectClickSound != nullptr)
+    {
+        Mix_FreeChunk(m_selectClickSound);
+        m_selectClickSound = nullptr;
+    }
+    
+    // Note: Mix_CloseAudio is called in main.cpp
+
+    if (m_footer != nullptr)
     {
         SDL_FreeSurface(m_caret);
         m_caret = nullptr;
@@ -275,6 +341,7 @@ void CKeyboard::render(const bool p_focus) const
     //    b. Highlight the text of the selected key.
     // 7. Render the text for the 'Cancel' and 'OK' buttons.
     // 8. Draw the footer with the instructions to use the keyboard.
+    // 9. If a message is set, draw it above the keyboard.
 
     INHIBIT(SDL_Log("CKeyboard::render  fullscreen: %s  focus: %s", isFullScreen(), p_focus);)
 
@@ -286,6 +353,31 @@ void CKeyboard::render(const bool p_focus) const
     const static int l_fieldWidth = FIELD_WIDTH;
     const static float l_adjustedPpuX = Globals::g_Screen.getAdjustedPpuX();
     const static float l_adjustedPpuY = Globals::g_Screen.getAdjustedPpuY();
+    
+    // If a message is set, render it above the keyboard
+    if (!m_message.empty()) {
+        // Use the same font as the keyboard but a bit bigger for the message
+        int fontSize = static_cast<int>(TTF_FontHeight(m_font) * 1.5);
+        TTF_Font* messageFont = TTF_OpenFont("/mnt/SDCARD/System/resources/FieryTurk.ttf", fontSize);
+        
+        if (messageFont != nullptr) {
+            // Draw the message centered above the keyboard
+            int messageY = l_fieldY - static_cast<int>(60 * l_adjustedPpuY);
+            SDL_Utils::applyText(
+                Globals::g_Screen.m_logicalWidth >> 1, 
+                messageY, 
+                Globals::g_screen, 
+                messageFont, 
+                m_message.c_str(), 
+                Globals::g_colorTextNormal, 
+                SDL_Color{COLOR_BG_3}, 
+                SDL_Utils::ETextAlign::CENTER
+            );
+            TTF_CloseFont(messageFont);
+        } else {
+            SDL_LogError(0, "Failed to load font for message: %s\n", TTF_GetError());
+        }
+    }
 
     // 1. Draw input text field
     SDL_Utils::applySurface(l_keyboardX, l_fieldY, m_textField, Globals::g_screen);
@@ -491,55 +583,67 @@ const bool CKeyboard::keyPress(const SDL_Event& p_event)
     {
     case MYKEY_UP:
         l_returnValue = moveCursorUp(LOOP_ONKEYPRESS);
+        if (l_returnValue) playNavigationSound();
         break;
     case MYKEY_DOWN:
         l_returnValue = moveCursorDown(LOOP_ONKEYPRESS);
+        if (l_returnValue) playNavigationSound();
         break;
     case MYKEY_LEFT:
         l_returnValue = moveCursorLeft(LOOP_ONKEYPRESS);
+        if (l_returnValue) playNavigationSound();
         break;
     case MYKEY_RIGHT:
         l_returnValue = moveCursorRight(LOOP_ONKEYPRESS);
+        if (l_returnValue) playNavigationSound();
         break;
     case MYKEY_SYSTEM:
         // Y => Backspace
         l_returnValue = pressBackspace();
+        if (l_returnValue) playSelectionSound();
         break;
     case MYKEY_OPERATION:
         // X => Space
         l_returnValue = typeChar(true);
+        if (l_returnValue) playSelectionSound();
         break;
     case MYKEY_OPEN:
         // A => Button pressed
         if (m_selected == s_keyColumnsMinusOne)
         {
             l_returnValue = pressBackspace(); // Backspace letter selected
+            if (l_returnValue) playSelectionSound();
         }
         else if (m_selected == TOTALKEYS)
         {
             // Button Cancel
             m_returnValue = -1;
             l_returnValue = true;
+            playSelectionSound();
         }
         else if (m_selected == s_totalKeysPlusOne)
         {
             // Button OK
             m_returnValue = 1;
             l_returnValue = true;
+            playSelectionSound();
         }
         else
         {
             // A letter button
             l_returnValue = typeChar();
+            if (l_returnValue) playSelectionSound();
         }
         break;
     case MYKEY_CARETLEFT:
         // L => Moves the caret to the left
         l_returnValue = moveCaret(true);
+        if (l_returnValue) playNavigationSound();
         break;
     case MYKEY_CARETRIGHT:
         // R => Moves the caret to the right
         l_returnValue = moveCaret(false);
+        if (l_returnValue) playNavigationSound();
         break;
     case MYKEY_PAGEDOWN:
         // L2 => Change keys to the top-most left
@@ -553,6 +657,7 @@ const bool CKeyboard::keyPress(const SDL_Event& p_event)
             m_selected = row * KEYCOLUMNS;
         }
         l_returnValue = true;
+        playNavigationSound();
         break;
     case MYKEY_PAGEUP:
         // R2 => Change keys to the top-most right
@@ -566,28 +671,35 @@ const bool CKeyboard::keyPress(const SDL_Event& p_event)
             m_selected = (KEYCOLUMNS - 1) + row * KEYCOLUMNS;
         }
         l_returnValue = true;
+        playNavigationSound();
         break;
     case MYKEY_START:
         // START => Button OK
         m_returnValue = 1;
         l_returnValue = true;
+        playSelectionSound();
         break;
     case MYKEY_TRANSFER:
         // B => Change keyset
         m_keySet = (m_keySet + 1) % NB_KEY_SETS;
         l_returnValue = true;
+        playSelectionSound();
         break;
     case MYKEY_PARENT:
         // MENU => Button Cancel
         m_returnValue = -1;
         l_returnValue = true;
+        playSelectionSound();
         break;
     case MYKEY_SELECT:
-        // Displays password as long as button is pressed
-        m_confidentialMode = false;
-        m_displayText = m_inputText;
-        renderField();
-        l_returnValue = true;
+        // Displays password as long as button is pressed, but only in confidential mode
+        if (m_confidentialMode) {
+            m_confidentialMode = false;
+            m_displayText = m_inputText;
+            renderField();
+            l_returnValue = true;
+            playSelectionSound();
+        }
         break;
     default:
         break;
@@ -1100,11 +1212,46 @@ void CKeyboard::maskInitialText()
 
 void CKeyboard::keyRelease(const SDL_Event& p_event)
 {
-    if (p_event.key.keysym.sym == MYKEY_SELECT) {
-        // Restore confidential (hidden) mode
-        m_confidentialMode = true;
+    if (p_event.key.keysym.sym == MYKEY_SELECT && m_confidentialMode) {
+        // Restore confidential (hidden) mode only if we are in password mode
         maskInitialText();
         renderField();
+    }
+}
+
+void CKeyboard::playNavigationSound() const
+{
+    if (m_navClickSound != nullptr) {
+        Mix_PlayChannelTimed(-1, m_navClickSound, 0, -1);
+    }
+}
+
+void CKeyboard::playSelectionSound() const
+{
+    if (m_selectClickSound != nullptr) {
+        Mix_PlayChannelTimed(-1, m_selectClickSound, 0, -1);
+    }
+}
+
+void CKeyboard::setConfidentialMode(bool mode) 
+{ 
+    m_confidentialMode = mode; 
+    
+    if (m_footer != nullptr) {
+        // Recreate the footer with updated text
+        SDL_FreeSurface(m_footer);
+        
+        const float l_adjustedPpuY = Globals::g_Screen.getAdjustedPpuY();
+        m_footer = SDL_Utils::createImage(Globals::g_Screen.m_logicalWidth, static_cast<int>(FOOTER_HEIGHT * l_adjustedPpuY), 
+                                         SDL_MapRGB(Globals::g_screen->format, COLOR_BORDER));
+        
+        std::string footerText = "A-Press  B-Keyset  Menu-Cancel  L/R-Caret  L2/R2-Edges  Y-Backspace  X-Space  Start-OK";
+        if (mode) {
+            footerText += "  SEL.-Show";
+        }
+        
+        SDL_Utils::applyText(Globals::g_Screen.m_logicalWidth >> 1, 6, m_footer, m_font, footerText.c_str(), 
+                         Globals::g_colorTextTitle, {COLOR_TITLE_BG}, SDL_Utils::ETextAlign::CENTER);
     }
 }
 
