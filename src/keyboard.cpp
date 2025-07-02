@@ -742,7 +742,7 @@ const bool CKeyboard::keyPress(const SDL_Event& p_event)
         // B => Change keyset
         m_keySet = (m_keySet + 1) % NB_KEY_SETS;
         l_returnValue = true;
-        playSelectionSound();
+        playNavigationSound();
         break;
     case MYKEY_PARENT:
         // MENU => Button Cancel
@@ -766,7 +766,7 @@ const bool CKeyboard::keyPress(const SDL_Event& p_event)
             m_displayText = m_inputText;
             renderField();
             l_returnValue = true;
-            playSelectionSound();
+            playNavigationSound();
         }
         break;
     default:
