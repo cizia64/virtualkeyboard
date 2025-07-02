@@ -107,6 +107,8 @@ CKeyboard::CKeyboard(const std::string &p_inputText):
     m_message(""),
     m_navClickSound(nullptr),
     m_selectClickSound(nullptr),
+    m_exitSound(nullptr),
+    m_exitDelayTimer(0),
     m_font(CResourceManager::instance().getFont())
 {
     // Steps:
@@ -239,6 +241,7 @@ CKeyboard::CKeyboard(const std::string &p_inputText):
         // Load sound files
         std::string navClickPath = std::string(RES_DIR) + "nav_click.wav";
         std::string keyClickPath = std::string(RES_DIR) + "key_click.wav";
+        std::string exitSoundPath = std::string(RES_DIR) + "exit.wav";
         
         SDL_RWops* navRw = SDL_RWFromFile(navClickPath.c_str(), "rb");
         if (navRw != nullptr) {
@@ -260,6 +263,17 @@ CKeyboard::CKeyboard(const std::string &p_inputText):
         } else {
             SDL_LogError(0, "Failed to open key_click.wav! SDL Error: %s\n", SDL_GetError());
             m_selectClickSound = nullptr;
+        }
+        
+        SDL_RWops* exitRw = SDL_RWFromFile(exitSoundPath.c_str(), "rb");
+        if (exitRw != nullptr) {
+            m_exitSound = Mix_LoadWAV_RW(exitRw, 1); // 1 means free the SDL_RWops when done
+            if (m_exitSound == nullptr) {
+                SDL_LogError(0, "Failed to load exit.wav! SDL_mixer Error: %s\n", Mix_GetError());
+            }
+        } else {
+            SDL_LogError(0, "Failed to open exit.wav! SDL Error: %s\n", SDL_GetError());
+            m_exitSound = nullptr;
         }
     }
 
@@ -310,6 +324,12 @@ CKeyboard::~CKeyboard(void)
         m_selectClickSound = nullptr;
     }
     
+    if (m_exitSound != nullptr)
+    {
+        Mix_FreeChunk(m_exitSound);
+        m_exitSound = nullptr;
+    }
+    
     // Note: Mix_CloseAudio is called in main.cpp
 
     if (m_footer != nullptr)
@@ -357,7 +377,7 @@ void CKeyboard::render(const bool p_focus) const
     // If a message is set, render it above the keyboard
     if (!m_message.empty()) {
         // Create a message bar like the footer but bigger
-        int messageHeight = static_cast<int>(FOOTER_HEIGHT * 2 * l_adjustedPpuY); // Twice as tall
+        int messageHeight = static_cast<int>(FOOTER_HEIGHT * 2 * l_adjustedPpuY + 20); // Twice as tall
         int messageY = l_fieldY - static_cast<int>(50 * l_adjustedPpuY); // Position above keyboard
         
         // Create a surface for the message with the same style as the footer
@@ -367,8 +387,8 @@ void CKeyboard::render(const bool p_focus) const
             SDL_MapRGB(Globals::g_screen->format, COLOR_BORDER)
         );
         
-        // Use the ResourceManager's font (m_font) directly but create a larger version
-        TTF_Font* largeFont = TTF_OpenFont(TTF_FontFaceFamilyName(m_font), static_cast<int>(FONT_SIZE * 1.5 * Globals::g_Screen.getAdjustedPpuY()));
+        // Use the ResourceManager's font (m_font) directly but create a larger version (2.5x larger)
+        TTF_Font* largeFont = TTF_OpenFont(RES_DIR "DejaVuSans.ttf", static_cast<int>(FONT_SIZE * 2.5 * Globals::g_Screen.getAdjustedPpuY()));
         
         // Get text size to calculate better vertical centering
         int textWidth = 0, textHeight = 0;
@@ -381,7 +401,7 @@ void CKeyboard::render(const bool p_focus) const
             // Adjust y position to ensure true vertical centering based on actual text height
             SDL_Utils::applyText(
                 Globals::g_Screen.m_logicalWidth >> 1,
-                (messageHeight - textHeight) >> 1, // True vertical center based on text height
+                ((messageHeight - textHeight) >> 1) - 5, // True vertical center based on text height
                 messageBar, 
                 largeFont, 
                 m_message.c_str(), 
@@ -714,6 +734,9 @@ const bool CKeyboard::keyPress(const SDL_Event& p_event)
         m_returnValue = 1;
         l_returnValue = true;
         playSelectionSound();
+        
+        // Add delay before actually exiting to let sound play
+        SDL_Delay(300);
         break;
     case MYKEY_TRANSFER:
         // B => Change keyset
@@ -725,7 +748,10 @@ const bool CKeyboard::keyPress(const SDL_Event& p_event)
         // MENU => Button Cancel
         m_returnValue = -1;
         l_returnValue = true;
-        playSelectionSound();
+        playExitSound(); // Use exit sound instead of selection sound
+        
+        // Add delay before actually exiting to let sound play
+        SDL_Delay(300);
         break;
     case MYKEY_SELECT:
         // Displays password as long as button is pressed, but only in confidential mode
@@ -780,6 +806,7 @@ const bool CKeyboard::keyHold(void)
             if (tick(l_isJoyButtonDown | SDL_GetKeyboardState(nullptr)[SDL_GetScancodeFromKey(MYKEY_UP)]))
             {
                 l_returnValue = moveCursorUp(LOOP_ONJOYDOWN);
+                if (l_returnValue) playNavigationSound(); // Play sound on repeat
                 m_mustShowCaret = false;
             }
             break;
@@ -787,6 +814,7 @@ const bool CKeyboard::keyHold(void)
             if (tick(l_isJoyButtonDown | SDL_GetKeyboardState(nullptr)[SDL_GetScancodeFromKey(MYKEY_DOWN)]))
             {
                 l_returnValue = moveCursorDown(LOOP_ONJOYDOWN);
+                if (l_returnValue) playNavigationSound(); // Play sound on repeat
                 m_mustShowCaret = false;
             }
             break;
@@ -794,6 +822,7 @@ const bool CKeyboard::keyHold(void)
             if (tick(l_isJoyButtonDown | SDL_GetKeyboardState(nullptr)[SDL_GetScancodeFromKey(MYKEY_LEFT)]))
             {
                 l_returnValue = moveCursorLeft(LOOP_ONJOYDOWN);
+                if (l_returnValue) playNavigationSound(); // Play sound on repeat
                 m_mustShowCaret = false;
             }
             break;
@@ -801,6 +830,7 @@ const bool CKeyboard::keyHold(void)
             if (tick(l_isJoyButtonDown | SDL_GetKeyboardState(nullptr)[SDL_GetScancodeFromKey(MYKEY_RIGHT)]))
             {
                 l_returnValue = moveCursorRight(LOOP_ONJOYDOWN);
+                if (l_returnValue) playNavigationSound(); // Play sound on repeat
                 m_mustShowCaret = false;
             }
             break;
@@ -809,6 +839,7 @@ const bool CKeyboard::keyHold(void)
             if (tick(l_isJoyButtonDown | SDL_GetKeyboardState(nullptr)[SDL_GetScancodeFromKey(MYKEY_SYSTEM)]))
             {
                 l_returnValue = pressBackspace();
+                if (l_returnValue) playSelectionSound(); // Play sound on repeat
                 m_mustShowCaret = l_returnValue;
             }
             break;
@@ -817,6 +848,7 @@ const bool CKeyboard::keyHold(void)
             if (tick(l_isJoyButtonDown | SDL_GetKeyboardState(nullptr)[SDL_GetScancodeFromKey(MYKEY_OPERATION)]))
             {
                 l_returnValue = typeChar(true);
+                if (l_returnValue) playSelectionSound(); // Play sound on repeat
                 m_mustShowCaret = l_returnValue;
             }
             break;
@@ -827,10 +859,12 @@ const bool CKeyboard::keyHold(void)
                 if (m_selected == KEYCOLUMNS - 1)
                 {
                     l_returnValue = pressBackspace(); // Backspace letter selected
+                    if (l_returnValue) playSelectionSound(); // Play sound on repeat
                 }
                 else
                 {
                     l_returnValue = typeChar();
+                    if (l_returnValue) playSelectionSound(); // Play sound on repeat
                 }
 
                 m_mustShowCaret = l_returnValue;
@@ -841,6 +875,7 @@ const bool CKeyboard::keyHold(void)
             if (tick(l_isJoyButtonDown | SDL_GetKeyboardState(nullptr)[SDL_GetScancodeFromKey(MYKEY_CARETLEFT)]))
             {
                 l_returnValue = moveCaret(true);
+                if (l_returnValue) playNavigationSound(); // Play sound on repeat
                 m_mustShowCaret = l_returnValue;
             }
             break;
@@ -849,6 +884,7 @@ const bool CKeyboard::keyHold(void)
             if (tick(l_isJoyButtonDown | SDL_GetKeyboardState(nullptr)[SDL_GetScancodeFromKey(MYKEY_CARETRIGHT)]))
             {
                 l_returnValue = moveCaret(false);
+                if (l_returnValue) playNavigationSound(); // Play sound on repeat
                 m_mustShowCaret = l_returnValue;
             }
             break;
@@ -1282,17 +1318,26 @@ void CKeyboard::keyRelease(const SDL_Event& p_event)
     }
 }
 
-void CKeyboard::playNavigationSound() const
+void CKeyboard::playNavigationSound()
 {
+    // Play navigation sound immediately without throttling
     if (m_navClickSound != nullptr) {
         Mix_PlayChannelTimed(-1, m_navClickSound, 0, -1);
     }
 }
 
-void CKeyboard::playSelectionSound() const
+void CKeyboard::playSelectionSound()
 {
+    // Play selection sound immediately without throttling
     if (m_selectClickSound != nullptr) {
         Mix_PlayChannelTimed(-1, m_selectClickSound, 0, -1);
+    }
+}
+
+void CKeyboard::playExitSound() const
+{
+    if (m_exitSound != nullptr) {
+        Mix_PlayChannelTimed(-1, m_exitSound, 0, -1);
     }
 }
 

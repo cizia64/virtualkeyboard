@@ -267,16 +267,29 @@ class CKeyboard : public CWindow
      */
     Mix_Chunk *m_navClickSound;
     Mix_Chunk *m_selectClickSound;
+    Mix_Chunk *m_exitSound;
 
     /**
      * @brief Play keyboard navigation sound
      */
-    void playNavigationSound() const;
+    void playNavigationSound();
 
     /**
      * @brief Play keyboard selection sound
      */
-    void playSelectionSound() const;
+    void playSelectionSound();
+    
+    /**
+     * @brief Play exit sound
+     */
+    void playExitSound() const;
+    
+    /**
+     * @brief Timer for exit delay
+     */
+    SDL_TimerID m_exitDelayTimer;
+    
+    // Ces variables ont été supprimées car nous voulons des répétitions de son à pleine vitesse
 
     /**
      * @brief Timestamps for each character in confidential mode
