@@ -356,27 +356,34 @@ void CKeyboard::render(const bool p_focus) const
     
     // If a message is set, render it above the keyboard
     if (!m_message.empty()) {
-        // Use the same font as the keyboard but a bit bigger for the message
-        int fontSize = static_cast<int>(TTF_FontHeight(m_font) * 1.5);
-        TTF_Font* messageFont = TTF_OpenFont("/mnt/SDCARD/System/resources/FieryTurk.ttf", fontSize);
+        // Create a message bar like the footer
+        int messageHeight = static_cast<int>(FOOTER_HEIGHT * l_adjustedPpuY);
+        int messageY = l_fieldY - static_cast<int>(40 * l_adjustedPpuY);
         
-        if (messageFont != nullptr) {
-            // Draw the message centered above the keyboard
-            int messageY = l_fieldY - static_cast<int>(60 * l_adjustedPpuY);
-            SDL_Utils::applyText(
-                Globals::g_Screen.m_logicalWidth >> 1, 
-                messageY, 
-                Globals::g_screen, 
-                messageFont, 
-                m_message.c_str(), 
-                Globals::g_colorTextNormal, 
-                SDL_Color{COLOR_BG_3}, 
-                SDL_Utils::ETextAlign::CENTER
-            );
-            TTF_CloseFont(messageFont);
-        } else {
-            SDL_LogError(0, "Failed to load font for message: %s\n", TTF_GetError());
-        }
+        // Create a surface for the message with the same style as the footer
+        SDL_Surface* messageBar = SDL_Utils::createImage(
+            Globals::g_Screen.m_logicalWidth, 
+            messageHeight, 
+            SDL_MapRGB(Globals::g_screen->format, COLOR_BORDER)
+        );
+        
+        // Apply the text to the message bar with the same style as the footer
+        SDL_Utils::applyText(
+            Globals::g_Screen.m_logicalWidth >> 1,
+            6, 
+            messageBar, 
+            m_font, 
+            m_message.c_str(), 
+            Globals::g_colorTextTitle, 
+            SDL_Color{COLOR_TITLE_BG}, 
+            SDL_Utils::ETextAlign::CENTER
+        );
+        
+        // Draw the message bar to the screen
+        SDL_Utils::applySurface(0, messageY, messageBar, Globals::g_screen);
+        
+        // Free the message bar surface
+        SDL_FreeSurface(messageBar);
     }
 
     // 1. Draw input text field
@@ -694,7 +701,7 @@ const bool CKeyboard::keyPress(const SDL_Event& p_event)
     case MYKEY_SELECT:
         // Displays password as long as button is pressed, but only in confidential mode
         if (m_confidentialMode) {
-            m_confidentialMode = false;
+            // Just temporarily show the password text, will be masked again on key release
             m_displayText = m_inputText;
             renderField();
             l_returnValue = true;
