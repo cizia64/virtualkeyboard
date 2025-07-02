@@ -358,7 +358,7 @@ void CKeyboard::render(const bool p_focus) const
     if (!m_message.empty()) {
         // Create a message bar like the footer but bigger
         int messageHeight = static_cast<int>(FOOTER_HEIGHT * 2 * l_adjustedPpuY); // Twice as tall
-        int messageY = l_fieldY - static_cast<int>(50 * l_adjustedPpuY);
+        int messageY = l_fieldY - static_cast<int>(50 * l_adjustedPpuY); // Position above keyboard
         
         // Create a surface for the message with the same style as the footer
         SDL_Surface* messageBar = SDL_Utils::createImage(
@@ -367,13 +367,21 @@ void CKeyboard::render(const bool p_focus) const
             SDL_MapRGB(Globals::g_screen->format, COLOR_BORDER)
         );
         
-        // Create a larger font for the message (2x normal size)
-        TTF_Font* largeFont = TTF_OpenFont(RES_DIR "FieryTurk.ttf", TTF_FontHeight(m_font) * 2);
+        // Use the ResourceManager's font (m_font) directly but create a larger version
+        TTF_Font* largeFont = TTF_OpenFont(TTF_FontFaceFamilyName(m_font), static_cast<int>(FONT_SIZE * 1.5 * Globals::g_Screen.getAdjustedPpuY()));
+        
+        // Get text size to calculate better vertical centering
+        int textWidth = 0, textHeight = 0;
+        
         if (largeFont != nullptr) {
-            // Apply the text to the message bar with the same style as the footer but larger font
+            // Get text dimensions to help with proper centering
+            TTF_SizeText(largeFont, m_message.c_str(), &textWidth, &textHeight);
+            
+            // Apply the text to the message bar with centered alignment
+            // Adjust y position to ensure true vertical centering based on actual text height
             SDL_Utils::applyText(
                 Globals::g_Screen.m_logicalWidth >> 1,
-                messageHeight / 4, // Centered vertically in the message bar
+                (messageHeight - textHeight) >> 1, // True vertical center based on text height
                 messageBar, 
                 largeFont, 
                 m_message.c_str(), 
@@ -383,10 +391,14 @@ void CKeyboard::render(const bool p_focus) const
             );
             TTF_CloseFont(largeFont);
         } else {
-            // Fallback to regular font if large font can't be loaded
+            // Fallback to regular font from resourceManager if large font can't be loaded
+            // Get text dimensions for proper centering
+            TTF_SizeText(m_font, m_message.c_str(), &textWidth, &textHeight);
+            
+            // Apply text with better vertical centering
             SDL_Utils::applyText(
                 Globals::g_Screen.m_logicalWidth >> 1,
-                messageHeight / 3, 
+                (messageHeight - textHeight) >> 1, // True vertical center based on text height
                 messageBar, 
                 m_font, 
                 m_message.c_str(), 
@@ -1144,6 +1156,22 @@ const bool CKeyboard::pressBackspace(void)
 		m_inputText.erase(m_caretPosition - l_caretAdvance, l_caretAdvance);
 		m_caretPosition -= l_caretAdvance;
         l_returnValue = true;
+
+        // Update displayText for confidential mode
+        if (m_confidentialMode) {
+            // Ensure displayText is updated to match inputText length
+            m_displayText = std::string(m_inputText.length(), '*');
+            // Update timestamps vector to match new length
+            m_charTimestamps.resize(m_inputText.length());
+            
+            // Only show the last character if:
+            // 1. The input text is not empty
+            // 2. We're not currently deleting a character (backspace operation)
+            // This ensures backspace doesn't accidentally reveal characters
+            if (!m_inputText.empty() && l_currentSize < m_inputText.length()) {
+                m_displayText[m_inputText.length() - 1] = m_inputText[m_inputText.length() - 1];
+            }
+        }
 
         INHIBIT(SDL_Log("Caret Position after deletion: %d", m_caretPosition);)
     }
