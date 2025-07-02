@@ -567,12 +567,12 @@ const bool CKeyboard::keyPress(const SDL_Event& p_event)
         }
         l_returnValue = true;
         break;
-    case MYKEY_TRANSFER:
-        // SELECT => Button OK
+    case MYKEY_START:
+        // START => Button OK
         m_returnValue = 1;
         l_returnValue = true;
         break;
-    case MYKEY_SELECT:
+    case MYKEY_TRANSFER:
         // B => Change keyset
         m_keySet = (m_keySet + 1) % NB_KEY_SETS;
         l_returnValue = true;
@@ -580,6 +580,13 @@ const bool CKeyboard::keyPress(const SDL_Event& p_event)
     case MYKEY_PARENT:
         // MENU => Button Cancel
         m_returnValue = -1;
+        l_returnValue = true;
+        break;
+    case MYKEY_SELECT:
+        // Displays password as long as button is pressed
+        m_confidentialMode = false;
+        m_displayText = m_inputText;
+        renderField();
         l_returnValue = true;
         break;
     default:
@@ -1089,5 +1096,15 @@ void CKeyboard::maskInitialText()
 {
     m_displayText = std::string(m_inputText.length(), '*');
     m_charTimestamps.resize(m_inputText.length(), SDL_GetTicks() - 1000);
+}
+
+void CKeyboard::keyRelease(const SDL_Event& p_event)
+{
+    if (p_event.key.keysym.sym == MYKEY_SELECT) {
+        // Restore confidential (hidden) mode
+        m_confidentialMode = true;
+        maskInitialText();
+        renderField();
+    }
 }
 

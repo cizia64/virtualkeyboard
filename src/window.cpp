@@ -7,6 +7,7 @@
 #include "window.h"
 #include "def.h"
 #include "sdlUtils.h"
+#include "keyboard.h"
 #include <string> 
 #include <map>
 
@@ -71,6 +72,15 @@ const int CWindow::execute(void)
                 break;
             case SDL_JOYBUTTONUP:
                 m_isJoyButtonDown = false;
+                // Releasing the actual SELECT button remasks the password.
+                if (l_event.jbutton.button == 6) { // SELECT button
+                    SDL_Event l_keyEvent;
+                    l_keyEvent.key.keysym.sym = MYKEY_SELECT;
+                    if (!Globals::g_windows.empty()) {
+                        CKeyboard* kb = dynamic_cast<CKeyboard*>(Globals::g_windows.back());
+                        if (kb) kb->keyRelease(l_keyEvent);
+                    }
+                }
                 this->handleUnsupportedEvent();
                 break;
             case SDL_JOYAXISMOTION:
@@ -148,12 +158,17 @@ void CWindow::handleJoyButtonDown(const SDL_Event& p_event, bool& p_render, bool
         l_keyEvent.key.keysym.sym = MYKEY_CARETRIGHT;
         p_render = this->keyPress(l_keyEvent);
         break;
+    case 6: // SELECT (Trimui Smart Pro)
+        m_isJoyButtonDown = true;
+        l_keyEvent.key.keysym.sym = MYKEY_SELECT;
+        p_render = this->keyPress(l_keyEvent);
+        break;
     case 7: // Start
-        l_keyEvent.key.keysym.sym = MYKEY_TRANSFER;
+        l_keyEvent.key.keysym.sym = MYKEY_START;
         p_render = this->keyPress(l_keyEvent);
         break;
     case 0: // B
-        l_keyEvent.key.keysym.sym = MYKEY_SELECT;
+        l_keyEvent.key.keysym.sym = MYKEY_TRANSFER;
         p_render = this->keyPress(l_keyEvent);
         break;
 #ifdef _WIN64

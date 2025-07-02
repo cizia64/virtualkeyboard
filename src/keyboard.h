@@ -81,6 +81,13 @@ class CKeyboard : public CWindow
      */
     void maskInitialText();
 
+    /**
+     * @brief         Manages key-release events.
+     * @param p_event The SDL event.
+     * @return        TRUE if the key release was handled; otherwise, FALSE.
+     */
+    void keyRelease(const SDL_Event& p_event);
+
     private:
 
     /**
