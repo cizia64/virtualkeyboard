@@ -356,9 +356,9 @@ void CKeyboard::render(const bool p_focus) const
     
     // If a message is set, render it above the keyboard
     if (!m_message.empty()) {
-        // Create a message bar like the footer
-        int messageHeight = static_cast<int>(FOOTER_HEIGHT * l_adjustedPpuY);
-        int messageY = l_fieldY - static_cast<int>(40 * l_adjustedPpuY);
+        // Create a message bar like the footer but bigger
+        int messageHeight = static_cast<int>(FOOTER_HEIGHT * 2 * l_adjustedPpuY); // Twice as tall
+        int messageY = l_fieldY - static_cast<int>(50 * l_adjustedPpuY);
         
         // Create a surface for the message with the same style as the footer
         SDL_Surface* messageBar = SDL_Utils::createImage(
@@ -367,17 +367,34 @@ void CKeyboard::render(const bool p_focus) const
             SDL_MapRGB(Globals::g_screen->format, COLOR_BORDER)
         );
         
-        // Apply the text to the message bar with the same style as the footer
-        SDL_Utils::applyText(
-            Globals::g_Screen.m_logicalWidth >> 1,
-            6, 
-            messageBar, 
-            m_font, 
-            m_message.c_str(), 
-            Globals::g_colorTextTitle, 
-            SDL_Color{COLOR_TITLE_BG}, 
-            SDL_Utils::ETextAlign::CENTER
-        );
+        // Create a larger font for the message (2x normal size)
+        TTF_Font* largeFont = TTF_OpenFont(RES_DIR "FieryTurk.ttf", TTF_FontHeight(m_font) * 2);
+        if (largeFont != nullptr) {
+            // Apply the text to the message bar with the same style as the footer but larger font
+            SDL_Utils::applyText(
+                Globals::g_Screen.m_logicalWidth >> 1,
+                messageHeight / 4, // Centered vertically in the message bar
+                messageBar, 
+                largeFont, 
+                m_message.c_str(), 
+                Globals::g_colorTextTitle, 
+                SDL_Color{COLOR_TITLE_BG}, 
+                SDL_Utils::ETextAlign::CENTER
+            );
+            TTF_CloseFont(largeFont);
+        } else {
+            // Fallback to regular font if large font can't be loaded
+            SDL_Utils::applyText(
+                Globals::g_Screen.m_logicalWidth >> 1,
+                messageHeight / 3, 
+                messageBar, 
+                m_font, 
+                m_message.c_str(), 
+                Globals::g_colorTextTitle, 
+                SDL_Color{COLOR_TITLE_BG}, 
+                SDL_Utils::ETextAlign::CENTER
+            );
+        }
         
         // Draw the message bar to the screen
         SDL_Utils::applySurface(0, messageY, messageBar, Globals::g_screen);
@@ -701,7 +718,13 @@ const bool CKeyboard::keyPress(const SDL_Event& p_event)
     case MYKEY_SELECT:
         // Displays password as long as button is pressed, but only in confidential mode
         if (m_confidentialMode) {
-            // Just temporarily show the password text, will be masked again on key release
+            // Temporarily disable the confidential timer
+            if (m_confidentialTimer != 0) {
+                SDL_RemoveTimer(m_confidentialTimer);
+                m_confidentialTimer = 0;
+            }
+            
+            // Show the password text, will be masked again on key release
             m_displayText = m_inputText;
             renderField();
             l_returnValue = true;
@@ -1223,6 +1246,11 @@ void CKeyboard::keyRelease(const SDL_Event& p_event)
         // Restore confidential (hidden) mode only if we are in password mode
         maskInitialText();
         renderField();
+        
+        // Restart the confidential timer to mask new characters
+        if (m_confidentialTimer == 0) {
+            m_confidentialTimer = SDL_AddTimer(100, hideCharacters, this);
+        }
     }
 }
 
